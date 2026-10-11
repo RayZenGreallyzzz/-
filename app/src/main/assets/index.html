@@ -1,0 +1,82 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1,maximum-scale=1,user-scalable=no"><title>Ферма</title>
+<style>
+:root{color-scheme:dark;--bg:#173b30;--panel:#244e3d;--gold:#edc46e;--line:#739b67}
+*{box-sizing:border-box}body{margin:0;background:#10291e;color:#fff4d7;font:15px system-ui,Arial;overflow:hidden}
+button{border:1px solid #ae985d;border-radius:14px;padding:10px 12px;background:linear-gradient(#688f55,#365d36);color:#fff8df;font-weight:700;cursor:pointer}button:active{filter:brightness(1.4)}button:disabled{opacity:.4}
+#app{height:100dvh;display:flex;flex-direction:column;max-width:1100px;margin:auto;background:#183c31}
+header{height:54px;flex-shrink:0;background:#294a36;display:flex;align-items:center;justify-content:space-between;padding:7px 14px;box-shadow:0 2px 8px #0006;gap:10px}
+#game{flex:1;position:relative;overflow:hidden;background:linear-gradient(170deg,#8bbdd5,#bce6d6 36%,#91af69)}
+canvas{width:100%;height:100%;touch-action:none;display:block}
+#hud{position:absolute;top:10px;left:10px;background:#173d32d9;padding:8px 12px;border-radius:12px;max-width:78%;font-size:12px}
+#toast{position:absolute;top:56px;left:50%;transform:translateX(-50%);padding:9px 15px;border-radius:12px;background:#153b30ee;display:none;text-align:center;min-width:180px}
+#nav{flex-shrink:0;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;padding:8px 5px;background:#244735}
+#nav button{font-size:11px;padding:6px 2px;border-radius:9px;white-space:nowrap}
+.icon{display:block;font-size:24px}
+#overlay{position:absolute;inset:0;background:#091f19a8;display:none;align-items:center;justify-content:center;padding:12px}
+.sheet{width:min(560px,100%);max-height:92%;overflow:auto;background:linear-gradient(#356045,#183b30);border:3px solid #c2a56b;border-radius:21px;padding:15px;box-shadow:0 12px 30px #0008}
+.sheet h2{margin:0 0 12px;text-align:center;color:#ffe1a0}.close{float:right}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.tile{padding:10px;background:#14382ea9;border:1px solid #65845a;border-radius:13px;text-align:center}
+.tile .emoji{font-size:33px;display:block}.tile img{width:94px;height:92px;object-fit:contain;display:block;margin:4px auto}
+.tile small{display:block;color:#d6cba5}.tile button{margin-top:7px}
+#choose{position:absolute;inset:0;background:radial-gradient(#a5c976,#376f4c);z-index:5;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:18px;text-align:center}
+#choose h1{margin:2px;font-size:32px;text-shadow:1px 3px #294a36}
+#portrait{width:min(65vw,260px);height:min(57vh,380px);object-fit:contain;filter:drop-shadow(0 6px 6px #163b38)}
+#characterFallback{font-size:118px;min-height:180px;display:flex;align-items:center}
+.arrows{display:flex;gap:14px;align-items:center}.arrows button{font-size:27px}
+#dots{margin:10px;font-size:13px}
+.gold{color:#ffe39e}#cropBar{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);background:#1b4c37d9;border-radius:16px;padding:8px;display:flex;gap:8px;flex-wrap:wrap;justify-content:center;max-width:95%}
+#cropBar button{padding:7px 10px;font-size:12px}
+@media(max-width:620px){#nav{grid-template-columns:repeat(4,minmax(0,1fr));padding:5px}#nav button{font-size:10px;padding:4px 0}.icon{font-size:19px}header{font-size:13px}#portrait{height:44vh}}
+</style></head><body><div id="app">
+<header><div>🌻 <b>МОЯ ФЕРМА</b> <span id="nick"></span></div><div>🪙 <b id="coins">0</b>　🌾 <b id="stored">0</b></div></header>
+<div id="game"><canvas id="map"></canvas><div id="hud">Выбери семена и нажми на свободную грядку</div><div id="toast"></div>
+<div id="cropBar"><button onclick="setSeed('wheat')">🌾 Пшеница</button><button onclick="setSeed('carrot')">🥕 Морковь</button><button onclick="setSeed('strawberry')">🍓 Клубника</button><button onclick="sellAll()">💰 Продать</button></div>
+<div id="overlay"><div class="sheet"><button class="close" onclick="closeMenu()">✕</button><h2 id="menuTitle"></h2><div id="menuContent"></div></div></div>
+<div id="choose"><h1>🌻 ВЫБЕРИ ФЕРМЕРА</h1><div class="arrows"><button onclick="changeFarmer(-1)">❮</button><div><img id="portrait" alt="Фермер"><div id="characterFallback">🧑‍🌾</div></div><button onclick="changeFarmer(1)">❯</button></div><h2 id="farmerLabel">Фермер</h2><div id="dots">1 / 10 · свайп вправо или влево</div><button onclick="startGame()" style="font-size:21px;padding:13px 40px">ИГРАТЬ ▶</button></div>
+</div>
+<nav id="nav"></nav></div>
+<script>
+const farmers=['Фермер с урожаем','Фермер с вилами','Фермер с тыквой','Фермер с лейкой','Фермер с яблоками','Фермерша с урожаем','Бабушка-фермер','Фермерша с лейкой','Садовница','Фермерша с мотыгой'];
+const deco=[['Цветочная арка','🌹'],['Декоративный фонтан','⛲'],['Клумба','🌷'],['Пруд с кувшинками','🪷'],['Садовый фонарь','🏮'],['Цветочная тележка','🛒'],['Скворечник','🐦'],['Гном с фонарём','🧙'],['Скамейка','🪑'],['Бочка с цветами','🌺'],['Корзина урожая','🧺'],['Садовый мостик','🌉'],['Улей с пчёлами','🐝'],['Розарий','🌸'],['Почтовый ящик','📮'],['Пугало','🎃'],['Костёр','🔥'],['Колодец','🪣'],['Мельница','🏡'],['Садовый указатель','🪧'],['Сено','🌾'],['Пикниковый стол','🥪'],['Цветочный вазон','💐'],['Телега','🛞']];
+const crops={wheat:{name:'Пшеница',emoji:'🌾',time:30000,seed:4,sell:12},carrot:{name:'Морковь',emoji:'🥕',time:45000,seed:7,sell:20},strawberry:{name:'Клубника',emoji:'🍓',time:60000,seed:12,sell:32}};
+const empty=()=>Array.from({length:16},(_,i)=>({id:i,crop:null,planted:0}));
+let save;try{save=JSON.parse(localStorage.getItem('farm-demo-save')||'null')}catch(e){}
+let state=Object.assign({coins:250,inventory:{wheat:0,carrot:0,strawberry:0},plots:empty(),farmer:0,selected:'wheat',premium:[],decor:[],built:[],visits:0},save||{});
+if(!Array.isArray(state.plots)||state.plots.length!==16)state.plots=empty();
+let pos={x:0,y:0},actor={x:3,y:5},farmerIndex=state.farmer,gestureX=null;
+const canvas=document.getElementById('map'),ctx=canvas.getContext('2d');
+function persist(){localStorage.setItem('farm-demo-save',JSON.stringify(state));}
+function inform(t){const el=document.getElementById('toast');el.textContent=t;el.style.display='block';clearTimeout(inform.timer);inform.timer=setTimeout(()=>el.style.display='none',1800);}
+function setSeed(k){state.selected=k;persist();inform('Выбрано: '+crops[k].name);draw();}
+function updateHud(){document.getElementById('coins').textContent=state.coins;document.getElementById('stored').textContent=Object.values(state.inventory).reduce((a,b)=>a+b,0);document.getElementById('nick').textContent='• '+farmers[state.farmer];}
+function changeFarmer(d){farmerIndex=(farmerIndex+d+farmers.length)%farmers.length;showFarmer();}
+function showFarmer(){document.getElementById('farmerLabel').textContent=farmers[farmerIndex];document.getElementById('dots').textContent=(farmerIndex+1)+' / '+farmers.length+' · свайп вправо или влево';const img=document.getElementById('portrait'),fallback=document.getElementById('characterFallback');fallback.textContent=farmerIndex>4?'👩‍🌾':'🧑‍🌾';img.style.display='none';fallback.style.display='flex';img.onload=()=>{img.style.display='block';fallback.style.display='none'};img.onerror=()=>{img.style.display='none';fallback.style.display='flex'};img.src='img/farmer'+(farmerIndex+1)+'.png';}
+const choose=document.getElementById('choose');choose.addEventListener('touchstart',e=>{gestureX=e.touches[0].clientX},{passive:true});choose.addEventListener('touchend',e=>{if(gestureX!==null){const dx=e.changedTouches[0].clientX-gestureX;if(Math.abs(dx)>35)changeFarmer(dx>0?-1:1)}gestureX=null},{passive:true});
+function startGame(){state.farmer=farmerIndex;persist();choose.style.display='none';updateHud();resize();}
+function home(){choose.style.display='flex';showFarmer();}
+const sections=[['Стройка','🔨'],['Ферма','🌱'],['Рейтинг','🏆'],['Друзья','👥'],['Магазин','🛍️'],['События','🎉'],['Кошелёк','💳']];
+document.getElementById('nav').innerHTML=sections.map(([n,e])=>'<button onclick="openMenu(\''+n+'\')"><span class="icon">'+e+'</span>'+n+'</button>').join('');
+function openMenu(name){document.getElementById('menuTitle').textContent=name;document.getElementById('overlay').style.display='flex';let h='';
+if(name==='Ферма'){h='<p>Сажай культуры на грядках, жди созревания и собирай урожай. Рост продолжается между запусками игры.</p>'+Object.entries(crops).map(([k,c])=>'<div class="tile">'+c.emoji+' <b>'+c.name+'</b> · '+c.time/1000+' сек · семена '+c.seed+' 🪙 · продажа '+c.sell+' 🪙 <button onclick="setSeed(\''+k+'\');closeMenu()">Выбрать</button></div>').join('')+'<p><button onclick="sellAll()">Продать весь урожай</button></p>';}
+if(name==='Стройка'){h='<p>Постройка добавляется на твою ферму. Декор из премиум-магазина — отдельно.</p><div class="grid">'+[['Грядка','🌱',50],['Деревянный забор','🪵',20],['Курятник','🐔',1000],['Сарай','🏚️',1500]].map(([n,e,p])=>'<div class="tile"><span class="emoji">'+e+'</span><b>'+n+'</b><small>'+p+' 🪙</small><button onclick="build(\''+n+'\','+p+')">Построить</button></div>').join('')+'</div>';}
+if(name==='Магазин'){h='<p>💎 Премиальный декор — тестовый каталог. Реальные деньги не списываются. <b>Тестовые кристаллы: ∞</b></p><div class="grid">'+deco.map(([n,e],i)=>'<div class="tile"><img src="img/premium'+(i+1)+'.png" onerror="this.style.display=\'none\'"><span class="emoji">'+e+'</span><b>'+n+'</b><small>💎 '+(10+i*5)+'</small><button onclick="buyPremium('+i+')">'+(state.premium.includes(i)?'В инвентаре ✓':'Получить (демо)')+'</button></div>').join('')+'</div>';}
+if(name==='Рейтинг')h='<p>🏆 Общий рейтинг заработает после подключения сервера.</p><div class="tile">1. Ты — тестовый фермер · '+state.coins+' 🪙</div>';
+if(name==='Друзья')h='<p>👥 После подключения сервера здесь будут поиск, заявки и посещение чужих ферм. Правило кражи: по 10% одному гостю, суммарно 50% урожая за период; обновление лимита каждые 24 часа отсутствия хозяина.</p>';
+if(name==='События')h='<p>🎉 Сезонные праздники, задания и награды появятся после подключения обновлений.</p>';
+if(name==='Кошелёк')h='<p>💳 TON/Telegram-кошелёк пока не подключается. В тестовой версии все монеты только игровые, настоящих операций нет.</p>';
+document.getElementById('menuContent').innerHTML=h;}
+function closeMenu(){document.getElementById('overlay').style.display='none';}
+function build(n,p){if(state.coins<p)return inform('Недостаточно монет');state.coins-=p;state.built.push({name:n,x:state.built.length});persist();updateHud();inform('Построено: '+n);openMenu('Стройка');draw();}
+function buyPremium(i){if(!state.premium.includes(i))state.premium.push(i);persist();inform('Получено: '+deco[i][0]);openMenu('Магазин');}
+function sellAll(){let gain=0;for(const [k,c] of Object.entries(crops)){gain+=state.inventory[k]*c.sell;state.inventory[k]=0}state.coins+=gain;persist();updateHud();inform(gain?'Продано на '+gain+' монет':'Урожая для продажи нет');}
+function plantOrHarvest(i){const p=state.plots[i],now=Date.now();if(p.crop){const c=crops[p.crop];if(now-p.planted>=c.time){state.inventory[p.crop]+=3;p.crop=null;p.planted=0;inform('Собрано: +3 '+c.name)}else inform('Ещё '+Math.ceil((c.time-now+p.planted)/1000)+' сек');}else{const c=crops[state.selected];if(state.coins<c.seed)return inform('Не хватает монет на семена');state.coins-=c.seed;p.crop=state.selected;p.planted=now;inform('Посажено: '+c.name)}persist();updateHud();draw();}
+function resize(){let box=canvas.getBoundingClientRect();canvas.width=Math.max(1,Math.round(box.width*devicePixelRatio));canvas.height=Math.max(1,Math.round(box.height*devicePixelRatio));draw();}
+function diamond(x,y,w,h,fill,stroke){ctx.beginPath();ctx.moveTo(x,y-h/2);ctx.lineTo(x+w/2,y);ctx.lineTo(x,y+h/2);ctx.lineTo(x-w/2,y);ctx.closePath();ctx.fillStyle=fill;ctx.fill();if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=1.3;ctx.stroke();}}
+let cells=[];
+function draw(){if(!canvas.width)return;const w=canvas.width,h=canvas.height,ratio=devicePixelRatio||1;ctx.clearRect(0,0,w,h);const tile=Math.min(w/10,h/8),tw=tile*1.75,th=tile*.9,ox=w/2,oy=h*.17;cells=[];const rh=Math.min(w,h);ctx.save();ctx.font=Math.round(tile*.48)+'px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';
+for(let row=0;row<10;row++)for(let col=0;col<10;col++){const x=ox+(col-row)*tw/2,y=oy+(col+row)*th/2;diamond(x,y,tw,th,(row+col)%2?'#8bbd69':'#91c66e','#6c9d52');if(row>=3&&row<7&&col>=3&&col<7){const i=(row-3)*4+(col-3),p=state.plots[i],ready=p.crop&&Date.now()-p.planted>=crops[p.crop].time;diamond(x,y,tw*.92,th*.84,ready?'#91603b':'#67492f','#4a3b24');const emoji=!p.crop?'·':ready?crops[p.crop].emoji:'🌱';ctx.fillStyle='#fff';ctx.fillText(emoji,x,y-tile*.08);cells.push({x,y,tw,th,i});}else if((row===1&&col===2)||(row===1&&col===3)){ctx.fillText('🏡',x,y-tile*.35)}else if(row===7&&col===6){ctx.fillText('🌳',x,y-tile*.25)}else if(row===2&&col===7){ctx.fillText('🐄',x,y-tile*.25)}}
+const px=ox+(actor.x-actor.y)*tw/2,py=oy+(actor.x+actor.y)*th/2;ctx.font=Math.round(tile*.7)+'px system-ui';ctx.fillText(state.farmer>=5?'👩‍🌾':'🧑‍🌾',px,py-tile*.4);ctx.restore();}
+canvas.addEventListener('pointerdown',e=>{const b=canvas.getBoundingClientRect(),x=(e.clientX-b.left)*canvas.width/b.width,y=(e.clientY-b.top)*canvas.height/b.height;let found=cells.slice().reverse().find(t=>Math.abs(x-t.x)/(.5*t.tw)+Math.abs(y-t.y)/(.5*t.th)<1);if(found)plantOrHarvest(found.i);else{actor.x=Math.max(0,Math.min(9,actor.x+(x>canvas.width/2?1:-1)));actor.y=Math.max(0,Math.min(9,actor.y+(y>canvas.height/2?1:-1)));draw();}});
+window.onAndroidBack=()=>{if(document.getElementById('overlay').style.display==='flex')closeMenu();else home();};
+window.addEventListener('resize',resize);setInterval(()=>{if(choose.style.display==='none')draw()},1000);showFarmer();updateHud();resize();if(save&&save.farmer!==undefined){startGame();}
+</script></body></html>
